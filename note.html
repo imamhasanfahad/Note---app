@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Smart Note & Market Keeper</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+        background-color: #f0f2f5;
+        transition: all 0.3s;
+    }
+    body.dark-mode {
+        background-color: #1e1e1e;
+        color: #ffffff;
+    }
+    h1 {
+        text-align: center;
+        margin-bottom: 20px;
+    }
+    textarea, input[type="text"], input[type="number"], input[type="color"] {
+        width: 100%;
+        padding: 10px;
+        margin: 10px 0;
+        font-size: 16px;
+        border-radius: 5px;
+        border: 1px solid #ccc;
+    }
+    button {
+        padding: 10px 20px;
+        margin: 5px 5px 15px 0;
+        border: none;
+        border-radius: 5px;
+        background-color: #28a745;
+        color: white;
+        cursor: pointer;
+        font-size: 16px;
+    }
+    button.delete-btn {
+        background-color: red;
+    }
+    button.edit-btn {
+        background-color: orange;
+    }
+    button.market-btn {
+        background-color: #17a2b8;
+    }
+    ul {
+        list-style: none;
+        padding: 0;
+    }
+    li {
+        background: white;
+        margin-bottom: 15px;
+        padding: 10px;
+        border-radius: 8px;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    .marked {
+        background-color: #d4edda;
+    }
+    .market-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background-color: #f9f9f9;
+        padding: 8px;
+        border-radius: 5px;
+        margin-top: 5px;
+    }
+    .image-preview {
+        max-width: 100%;
+        height: auto;
+        margin-top: 10px;
+        border-radius: 8px;
+    }
+    .note-time {
+        font-size: 12px;
+        color: gray;
+    }
+    .controls {
+        text-align: center;
+    }
+</style>
+</head>
+<body>
+
+<h1>📒 Smart Note + 🛒 Market List</h1>
+
+<!-- Note input -->
+<textarea id="noteInput" placeholder="Write your Note here..."></textarea>
+
+<!-- Image upload -->
+<input type="file" id="imageUpload" accept="image/*" onchange="previewImage()">
+<img id="imagePreview" class="image-preview" src="" alt="">
+
+<!-- Font and color selector -->
+<div class="controls">
+    <label>Font Style:</label>
+    <select id="fontSelect" onchange="changeFont()">
+        <option value="Arial, sans-serif">Arial</option>
+        <option value="Courier New, monospace">Courier New</option>
+        <option value="Georgia, serif">Georgia</option>
+        <option value="Times New Roman, serif">Times New Roman</option>
+    </select>
+    <br><br>
+    <label>Font Color:</label>
+    <input type="color" id="fontColor" onchange="changeFontColor()" value="#000000">
+    <br><br>
+    <button onclick="toggleDarkMode()">Toggle Theme</button>
+</div>
+
+<!-- Save button -->
+<button onclick="saveNote()">Save Note</button>
+
+<!-- Note List -->
+<ul id="noteList"></ul>
+
+<script>
+let notes = JSON.parse(localStorage.getItem('notes')) || [];
+let currentFont = "Arial, sans-serif";
+let currentFontColor = "#000000";
+let currentImage = "";
+
+function previewImage() {
+    const file = document.getElementById('imageUpload').files[0];
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        currentImage = e.target.result;
+        document.getElementById('imagePreview').src = currentImage;
+    }
+    reader.readAsDataURL(file);
+}
+
+function saveNote() {
+    const text = document.getElementById('noteInput').value.trim();
+    if (text === "") {
+        alert("Please write something!");
+        return;
+    }
+    const newNote = {
+        text: text.split("\n"),
+        time: new Date().toLocaleString(),
+        font: currentFont,
+        color: currentFontColor,
+        image: currentImage,
+        marketItems: []
+    };
+    notes.push(newNote);
+    localStorage.setItem('notes', JSON.stringify(notes));
+    document.getElementById('noteInput').value = "";
+    document.getElementById('imagePreview').src = "";
+    currentImage = "";
+    displayNotes();
+}
+
+function displayNotes() {
+    const list = document.getElementById('noteList');
+    list.innerHTML = "";
+    notes.forEach((note, index) => {
+        const li = document.createElement('li');
+        li.style.fontFamily = note.font;
+        li.style.color = note.color;
+        li.innerHTML = `
+            <strong>Note:</strong><br>${note.text.map((line, i) => `${i+1}. ${line}`).join('<br>')}
+            ${note.image ? `<img src="${note.image}" class="image-preview">` : ""}
+            <div class="note-time">${note.time}</div>
+            <button class="edit-btn" onclick="editNote(${index})">Edit</button>
+            <button class="delete-btn" onclick="deleteNote(${index})">Delete</button>
+            <button class="market-btn" onclick="addMarketItem(${index})">+ Market Item</button>
+            <div id="marketList-${index}">
+                ${note.marketItems.map((item, i) => `
+                    <div class="market-item ${item.marked ? 'marked' : ''}">
+                        <div>${item.name} (${item.qty}) - ${item.price}৳</div>
+                        <input type="checkbox" ${item.marked ? 'checked' : ''} onchange="toggleMarketItem(${index},${i})">
+                    </div>
+                `).join('')}
+            </div>
+        `;
+        list.appendChild(li);
+    });
+}
+
+function deleteNote(index) {
+    if (confirm("Delete this note?")) {
+        notes.splice(index, 1);
+        localStorage.setItem('notes', JSON.stringify(notes));
+        displayNotes();
+    }
+}
+
+function editNote(index) {
+    const editedText = prompt("Edit your note:", notes[index].text.join("\n"));
+    if (editedText !== null) {
+        notes[index].text = editedText.split("\n");
+        notes[index].time = new Date().toLocaleString();
+        localStorage.setItem('notes', JSON.stringify(notes));
+        displayNotes();
+    }
+}
+
+function addMarketItem(noteIndex) {
+    const productName = prompt("Product Name:");
+    if (!productName) return;
+    const qty = prompt("Quantity:");
+    if (!qty) return;
+    const price = prompt("Price:");
+    if (!price) return;
+
+    notes[noteIndex].marketItems.push({ name: productName, qty: qty, price: price, marked: false });
+    localStorage.setItem('notes', JSON.stringify(notes));
+    displayNotes();
+}
+
+function toggleMarketItem(noteIndex, marketIndex) {
+    notes[noteIndex].marketItems[marketIndex].marked = !notes[noteIndex].marketItems[marketIndex].marked;
+    localStorage.setItem('notes', JSON.stringify(notes));
+    displayNotes();
+}
+
+function changeFont() {
+    currentFont = document.getElementById('fontSelect').value;
+}
+
+function changeFontColor() {
+    currentFontColor = document.getElementById('fontColor').value;
+}
+
+function toggleDarkMode() {
+    document.body.classList.toggle('dark-mode');
+}
+
+// Load notes on page load
+displayNotes();
+</script>
+
+</body>
+</html>
